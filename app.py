@@ -22,7 +22,6 @@ def load_data():
     df = convert_coordinates(df)
 
     df["ts"] = pd.to_datetime(df["ts"])
-    df["date"] = df["ts"].dt.date
 
     return df
 
