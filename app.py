@@ -302,7 +302,7 @@ fig.update_layout(
 st.plotly_chart(fig, use_container_width=True)
 
 # --------------------------------------------------
-# HEATMAP (DESIGNER FRIENDLY)
+# HEATMAP (MAP-SHAPED OVERLAY)
 # --------------------------------------------------
 
 st.subheader("Map Activity Overview")
@@ -331,22 +331,45 @@ else:
 
 heat_fig = go.Figure()
 
+# heatmap layer
 heat_fig.add_trace(
     go.Histogram2d(
         x=heat_df["px"],
         y=heat_df["py"],
-        nbinsx=50,
-        nbinsy=50,
-        colorscale="YlOrRd"
+        nbinsx=60,
+        nbinsy=60,
+        colorscale="YlOrRd",
+        showscale=False,
+        opacity=0.6
     )
 )
 
+# map image overlay
 heat_fig.update_layout(
-    xaxis=dict(range=[0, 1024]),
-    yaxis=dict(range=[1024, 0])
+    width=900,
+    height=900,
+    xaxis=dict(range=[0,1024], showgrid=False),
+    yaxis=dict(range=[1024,0], showgrid=False, scaleanchor="x"),
+    images=[
+        dict(
+            source=minimap,
+            xref="x",
+            yref="y",
+            x=0,
+            y=0,
+            sizex=1024,
+            sizey=1024,
+            sizing="stretch",
+            layer="above"
+        )
+    ]
 )
 
 st.plotly_chart(heat_fig, use_container_width=True)
+
+st.caption(
+    "Red areas indicate the highest player activity."
+)
 
 # --------------------------------------------------
 # MATCH STATS
