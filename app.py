@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
+import plotly.express as px
 from PIL import Image
 
 from data_loader import load_all_data
@@ -117,7 +118,7 @@ timeline_index = st.slider(
 match_df = match_df.iloc[:timeline_index]
 
 # --------------------------------------------------
-# CREATE SAFE TIME NORMALIZATION
+# SAFE TIME NORMALIZATION
 # --------------------------------------------------
 
 if len(match_df) > 1:
@@ -150,6 +151,19 @@ if map_choice == "Lockdown":
 minimap = Image.open(map_path)
 
 # --------------------------------------------------
+# PLAYER COLORS
+# --------------------------------------------------
+
+players = sorted(match_df["user_id"].unique())
+
+palette = px.colors.qualitative.Alphabet
+
+player_colors = {
+    player: palette[i % len(palette)]
+    for i, player in enumerate(players)
+}
+
+# --------------------------------------------------
 # EVENT COLORS
 # --------------------------------------------------
 
@@ -163,13 +177,13 @@ event_colors = {
 }
 
 # --------------------------------------------------
-# CREATE MAP FIGURE
+# CREATE FIGURE
 # --------------------------------------------------
 
 fig = go.Figure()
 
 # --------------------------------------------------
-# MOVEMENT TRAILS WITH FADING
+# MOVEMENT TRAILS (FADE OVER TIME)
 # --------------------------------------------------
 
 for player_id, player_df in match_df.groupby("user_id"):
@@ -178,11 +192,13 @@ for player_id, player_df in match_df.groupby("user_id"):
 
     xs = player_df["px"].values
     ys = player_df["py"].values
-    times = player_df["time_norm"].values
 
-    player_type = player_df["player_type"].iloc[0]
+    times = player_df.get(
+        "time_norm",
+        pd.Series([1]*len(player_df))
+    ).values
 
-    color = "blue" if player_type == "human" else "orange"
+    color = player_colors[player_id]
 
     for i in range(1, len(xs)):
 
@@ -197,7 +213,7 @@ for player_id, player_df in match_df.groupby("user_id"):
             )
         )
 
-    # Current position marker
+    # current position
     fig.add_trace(
         go.Scatter(
             x=[xs[-1]],
@@ -205,10 +221,10 @@ for player_id, player_df in match_df.groupby("user_id"):
             mode="markers",
             marker=dict(
                 size=10,
-                color="white",
-                line=dict(width=2, color="black")
+                color=color,
+                line=dict(width=2,color="black")
             ),
-            showlegend=False
+            name=str(player_id)
         )
     )
 
@@ -216,7 +232,9 @@ for player_id, player_df in match_df.groupby("user_id"):
 # EVENT MARKERS
 # --------------------------------------------------
 
-events_df = match_df[match_df["event"].isin(event_colors.keys())]
+events_df = match_df[
+    match_df["event"].isin(event_colors.keys())
+]
 
 for event_type, event_df in events_df.groupby("event"):
 
@@ -234,6 +252,33 @@ for event_type, event_df in events_df.groupby("event"):
     )
 
 # --------------------------------------------------
+# COMBAT INTERACTION LINES
+# --------------------------------------------------
+
+kills = match_df[
+    match_df["event"].isin(["Kill","BotKill"])
+]
+
+deaths = match_df[
+    match_df["event"].isin(["Killed","BotKilled"])
+]
+
+pair_count = min(len(kills), len(deaths))
+
+for i in range(pair_count):
+
+    fig.add_trace(
+        go.Scatter(
+            x=[kills.iloc[i]["px"], deaths.iloc[i]["px"]],
+            y=[kills.iloc[i]["py"], deaths.iloc[i]["py"]],
+            mode="lines",
+            line=dict(color="red", width=1, dash="dot"),
+            opacity=0.6,
+            showlegend=False
+        )
+    )
+
+# --------------------------------------------------
 # ADD MINIMAP BACKGROUND
 # --------------------------------------------------
 
@@ -241,12 +286,12 @@ fig.update_layout(
     width=900,
     height=900,
     xaxis=dict(
-        range=[0, 1024],
+        range=[0,1024],
         showgrid=False,
         zeroline=False
     ),
     yaxis=dict(
-        range=[1024, 0],
+        range=[1024,0],
         showgrid=False,
         zeroline=False,
         scaleanchor="x"
@@ -276,23 +321,23 @@ st.subheader("Heatmap Analysis")
 
 heatmap_type = st.selectbox(
     "Heatmap Type",
-    ["Kill Zones", "Death Zones", "High Traffic"]
+    ["Kill Zones","Death Zones","High Traffic"]
 )
 
 if heatmap_type == "Kill Zones":
 
-    heat_df = df[df["event"] == "Kill"]
+    heat_df = df[df["event"]=="Kill"]
 
 elif heatmap_type == "Death Zones":
 
     heat_df = df[df["event"].isin(
-        ["Killed", "BotKilled", "KilledByStorm"]
+        ["Killed","BotKilled","KilledByStorm"]
     )]
 
 else:
 
     heat_df = df[df["event"].isin(
-        ["Position", "BotPosition"]
+        ["Position","BotPosition"]
     )]
 
 heatmap = go.Figure(
@@ -312,12 +357,12 @@ heatmap.update_layout(
 st.plotly_chart(heatmap, use_container_width=True)
 
 # --------------------------------------------------
-# MATCH STATISTICS
+# MATCH STATS
 # --------------------------------------------------
 
 st.subheader("Match Statistics")
 
-col1, col2, col3 = st.columns(3)
+col1,col2,col3 = st.columns(3)
 
 col1.metric(
     "Players Visible",
@@ -326,10 +371,10 @@ col1.metric(
 
 col2.metric(
     "Kills",
-    len(match_df[match_df["event"] == "Kill"])
+    len(match_df[match_df["event"]=="Kill"])
 )
 
 col3.metric(
     "Loot Events",
-    len(match_df[match_df["event"] == "Loot"])
+    len(match_df[match_df["event"]=="Loot"])
 )
