@@ -102,20 +102,21 @@ elif player_mode == "Select Specific Players":
 
 match_df = match_df.sort_values("ts")
 
+event_count = len(match_df)
+
+if event_count == 0:
+
+    st.warning("No events available for the selected player filter.")
+    st.stop()
+
 timeline_index = st.slider(
     "Match Timeline",
-    0,
-    len(match_df),
-    min(1000, len(match_df))
+    min_value=1,
+    max_value=event_count,
+    value=min(1000, event_count)
 )
 
 match_df = match_df.iloc[:timeline_index]
-
-# Normalize timestamps for fading trails
-match_df["time_norm"] = (
-    (match_df["ts"] - match_df["ts"].min()) /
-    (match_df["ts"].max() - match_df["ts"].min())
-)
 
 # --------------------------------------------------
 # LOAD MINIMAP
