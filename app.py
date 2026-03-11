@@ -306,78 +306,63 @@ fig.update_layout(
 st.plotly_chart(fig, use_container_width=True)
 
 # --------------------------------------------------
-# SMOOTH HEATMAP OVERLAY (STABLE VERSION)
+# HEATMAP PANEL
 # --------------------------------------------------
 
-st.subheader("Map Activity Overview")
+st.subheader("Activity Heatmap")
 
-heatmap_type = st.selectbox(
-    "Show Map Activity",
-    ["Player Traffic", "Kill Hotspots", "Death Hotspots"],
-    key="heatmap_selector"
-)
+col1, col2 = st.columns([2,1])
 
-# Filter data based on selection
-if heatmap_type == "Kill Hotspots":
+with col2:
 
-    heat_df = match_df[match_df["event"] == "Kill"]
-
-elif heatmap_type == "Death Hotspots":
-
-    heat_df = match_df[match_df["event"].isin(
-        ["Killed", "BotKilled", "KilledByStorm"]
-    )]
-
-else:
-
-    heat_df = match_df[match_df["event"].isin(
-        ["Position", "BotPosition"]
-    )]
-
-if len(heat_df) == 0:
-
-    st.info("No activity available for this filter.")
-
-else:
-
-    heat_fig = px.density_heatmap(
-        heat_df,
-        x="px",
-        y="py",
-        nbinsx=80,
-        nbinsy=80,
-        color_continuous_scale="YlOrRd"
+    heatmap_type = st.selectbox(
+        "Heatmap Type",
+        ["Player Traffic", "Kill Hotspots", "Death Hotspots"],
+        key="heatmap_selector"
     )
 
-    # Remove color bar to keep it designer friendly
-    heat_fig.update_layout(coloraxis_showscale=False)
+    if heatmap_type == "Kill Hotspots":
 
-    # Add minimap background
-    heat_fig.update_layout(
-        width=900,
-        height=900,
-        xaxis=dict(range=[0,1024], showgrid=False),
-        yaxis=dict(range=[1024,0], showgrid=False, scaleanchor="x"),
-        images=[
-            dict(
-                source=minimap,
-                xref="x",
-                yref="y",
-                x=0,
-                y=0,
-                sizex=1024,
-                sizey=1024,
-                sizing="stretch",
-                layer="below"
-            )
-        ]
-    )
+        heat_df = df[df["event"] == "Kill"]
 
-    st.plotly_chart(heat_fig, use_container_width=True)
+    elif heatmap_type == "Death Hotspots":
 
-    st.caption(
-        "Red zones represent the highest concentration of player activity."
-    )
+        heat_df = df[df["event"].isin(
+            ["Killed","BotKilled","KilledByStorm"]
+        )]
+
+    else:
+
+        heat_df = df[df["event"].isin(
+            ["Position","BotPosition"]
+        )]
+
+    if len(heat_df) == 0:
+
+        st.info("No data available for this selection.")
+
+    else:
+
+        heat_fig = px.density_heatmap(
+            heat_df,
+            x="px",
+            y="py",
+            nbinsx=60,
+            nbinsy=60,
+            color_continuous_scale="YlOrRd"
+        )
+
+        heat_fig.update_layout(
+            title="Activity Distribution",
+            xaxis_title="Map X",
+            yaxis_title="Map Y"
+        )
+
+        st.plotly_chart(heat_fig, use_container_width=True)
+
+        st.caption(
+            "Red areas show where player activity is most concentrated."
+        )
 
 # --------------------------------------------------
 # MATCH STATS
