@@ -257,8 +257,10 @@ fig.update_layout(
 st.plotly_chart(fig, use_container_width=True)
 
 # --------------------------------------------------
-# HEATMAP (NO MAP IMAGE GUARANTEED)
+# HEATMAP ANALYSIS
 # --------------------------------------------------
+
+st.write("Heatmap points:", len(heat_df))
 
 st.subheader("Activity Heatmap")
 
@@ -268,26 +270,33 @@ heatmap_type = st.selectbox(
     key="heatmap_selector"
 )
 
-# Filter events using the selected match
+# Use date-level data instead of match-level
 if heatmap_type == "Kill Hotspots":
-    heat_df = match_df[match_df["event"] == "Kill"]
+
+    heat_df = date_df[date_df["event"] == "Kill"]
 
 elif heatmap_type == "Death Hotspots":
-    heat_df = match_df[
-        match_df["event"].isin(["Killed","BotKilled","KilledByStorm"])
+
+    heat_df = date_df[
+        date_df["event"].isin(
+            ["Killed","BotKilled","KilledByStorm"]
+        )
     ]
 
 else:
-    heat_df = match_df[
-        match_df["event"].isin(["Position","BotPosition"])
+
+    heat_df = date_df[
+        date_df["event"].isin(
+            ["Position","BotPosition"]
+        )
     ]
 
 if len(heat_df) == 0:
+
     st.info("No activity available for this filter.")
 
 else:
 
-    # Create completely new figure
     heat_fig = px.density_heatmap(
         heat_df,
         x="px",
@@ -297,22 +306,18 @@ else:
         color_continuous_scale="YlOrRd"
     )
 
-    # Remove background images explicitly
     heat_fig.update_layout(
-        images=[],                # CRITICAL FIX
+        images=[],
         coloraxis_showscale=False,
-        plot_bgcolor="black",
-        paper_bgcolor="black",
         title="Activity Density"
     )
 
-    heat_fig.update_xaxes(range=[0,1024])
-    heat_fig.update_yaxes(range=[1024,0])
+    heat_fig.update_yaxes(autorange="reversed")
 
     st.plotly_chart(heat_fig, use_container_width=True)
 
     st.caption(
-        "Red zones represent areas with the highest player activity."
+        "Red zones indicate areas with the highest player activity."
     )
 
 # --------------------------------------------------
