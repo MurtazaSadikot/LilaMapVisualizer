@@ -257,7 +257,7 @@ fig.update_layout(
 st.plotly_chart(fig, use_container_width=True)
 
 # --------------------------------------------------
-# HEATMAP (NO MAP IMAGE)
+# HEATMAP (NO MAP IMAGE GUARANTEED)
 # --------------------------------------------------
 
 st.subheader("Activity Heatmap")
@@ -268,28 +268,26 @@ heatmap_type = st.selectbox(
     key="heatmap_selector"
 )
 
+# Filter events using the selected match
 if heatmap_type == "Kill Hotspots":
-
     heat_df = match_df[match_df["event"] == "Kill"]
 
 elif heatmap_type == "Death Hotspots":
-
-    heat_df = match_df[match_df["event"].isin(
-        ["Killed","BotKilled","KilledByStorm"]
-    )]
+    heat_df = match_df[
+        match_df["event"].isin(["Killed","BotKilled","KilledByStorm"])
+    ]
 
 else:
-
-    heat_df = match_df[match_df["event"].isin(
-        ["Position","BotPosition"]
-    )]
+    heat_df = match_df[
+        match_df["event"].isin(["Position","BotPosition"])
+    ]
 
 if len(heat_df) == 0:
-
     st.info("No activity available for this filter.")
 
 else:
 
+    # Create completely new figure
     heat_fig = px.density_heatmap(
         heat_df,
         x="px",
@@ -299,21 +297,22 @@ else:
         color_continuous_scale="YlOrRd"
     )
 
-    # remove color bar and background images
+    # Remove background images explicitly
     heat_fig.update_layout(
-        images=[],
+        images=[],                # CRITICAL FIX
         coloraxis_showscale=False,
-        title="Activity Distribution",
-        xaxis_title="Map X",
-        yaxis_title="Map Y"
+        plot_bgcolor="black",
+        paper_bgcolor="black",
+        title="Activity Density"
     )
 
-    heat_fig.update_yaxes(autorange="reversed")
+    heat_fig.update_xaxes(range=[0,1024])
+    heat_fig.update_yaxes(range=[1024,0])
 
     st.plotly_chart(heat_fig, use_container_width=True)
 
     st.caption(
-        "Red zones represent the highest concentration of player activity."
+        "Red zones represent areas with the highest player activity."
     )
 
 # --------------------------------------------------
