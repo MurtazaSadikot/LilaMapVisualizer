@@ -78,11 +78,15 @@ player_mode = st.sidebar.radio(
 
 if player_mode == "Only Humans":
 
-    match_df = match_df[match_df["player_type"] == "human"]
+    match_df = match_df[
+        match_df["player_type"] == "human"
+    ]
 
 elif player_mode == "Only Bots":
 
-    match_df = match_df[match_df["player_type"] == "bot"]
+    match_df = match_df[
+        match_df["player_type"] == "bot"
+    ]
 
 elif player_mode == "Select Specific Players":
 
@@ -179,7 +183,7 @@ event_colors = {
 }
 
 # --------------------------------------------------
-# CREATE FIGURE
+# CREATE MAP FIGURE
 # --------------------------------------------------
 
 fig = go.Figure()
@@ -276,14 +280,14 @@ for i in range(pair_count):
     )
 
 # --------------------------------------------------
-# MAP BACKGROUND
+# ADD MAP BACKGROUND
 # --------------------------------------------------
 
 fig.update_layout(
     width=900,
     height=900,
-    xaxis=dict(range=[0, 1024], showgrid=False),
-    yaxis=dict(range=[1024, 0], showgrid=False, scaleanchor="x"),
+    xaxis=dict(range=[0,1024], showgrid=False),
+    yaxis=dict(range=[1024,0], showgrid=False, scaleanchor="x"),
     images=[
         dict(
             source=minimap,
@@ -302,7 +306,7 @@ fig.update_layout(
 st.plotly_chart(fig, use_container_width=True)
 
 # --------------------------------------------------
-# HEATMAP (MAP-SHAPED OVERLAY)
+# HEATMAP OVERLAY
 # --------------------------------------------------
 
 st.subheader("Map Activity Overview")
@@ -331,7 +335,6 @@ else:
 
 heat_fig = go.Figure()
 
-# heatmap layer
 heat_fig.add_trace(
     go.Histogram2d(
         x=heat_df["px"],
@@ -339,12 +342,11 @@ heat_fig.add_trace(
         nbinsx=60,
         nbinsy=60,
         colorscale="YlOrRd",
-        showscale=False,
-        opacity=0.6
+        opacity=0.7,
+        showscale=False
     )
 )
 
-# map image overlay
 heat_fig.update_layout(
     width=900,
     height=900,
@@ -360,7 +362,7 @@ heat_fig.update_layout(
             sizex=1024,
             sizey=1024,
             sizing="stretch",
-            layer="above"
+            layer="below"
         )
     ]
 )
@@ -368,7 +370,7 @@ heat_fig.update_layout(
 st.plotly_chart(heat_fig, use_container_width=True)
 
 st.caption(
-    "Red areas indicate the highest player activity."
+    "Red areas indicate the highest player activity on the map."
 )
 
 # --------------------------------------------------
