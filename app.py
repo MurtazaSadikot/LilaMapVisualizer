@@ -105,8 +105,7 @@ match_df = match_df.sort_values("ts")
 event_count = len(match_df)
 
 if event_count == 0:
-
-    st.warning("No events available for the selected player filter.")
+    st.warning("No events available for the selected filters.")
     st.stop()
 
 timeline_index = st.slider(
@@ -117,6 +116,28 @@ timeline_index = st.slider(
 )
 
 match_df = match_df.iloc[:timeline_index]
+
+# --------------------------------------------------
+# CREATE SAFE TIME NORMALIZATION
+# --------------------------------------------------
+
+if len(match_df) > 1:
+
+    ts_min = match_df["ts"].min()
+    ts_max = match_df["ts"].max()
+
+    if ts_max != ts_min:
+
+        match_df["time_norm"] = (
+            (match_df["ts"] - ts_min) /
+            (ts_max - ts_min)
+        )
+
+    else:
+        match_df["time_norm"] = 1
+
+else:
+    match_df["time_norm"] = 1
 
 # --------------------------------------------------
 # LOAD MINIMAP
