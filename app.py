@@ -57,6 +57,46 @@ match_choice = st.sidebar.selectbox(
 match_df = date_df[date_df["match_id"] == match_choice]
 
 # --------------------------------------------------
+# PLAYER FILTER
+# --------------------------------------------------
+
+st.sidebar.subheader("Player Filter")
+
+player_mode = st.sidebar.radio(
+    "Show Players",
+    [
+        "All Players",
+        "Only Humans",
+        "Only Bots",
+        "Select Specific Players"
+    ]
+)
+
+if player_mode == "Only Humans":
+
+    match_df = match_df[
+        match_df["player_type"] == "human"
+    ]
+
+elif player_mode == "Only Bots":
+
+    match_df = match_df[
+        match_df["player_type"] == "bot"
+    ]
+
+elif player_mode == "Select Specific Players":
+
+    players = st.sidebar.multiselect(
+        "Select Players",
+        sorted(match_df["user_id"].unique())
+    )
+
+    if players:
+        match_df = match_df[
+            match_df["user_id"].isin(players)
+        ]
+
+# --------------------------------------------------
 # TIMELINE
 # --------------------------------------------------
 
@@ -102,12 +142,15 @@ event_colors = {
 }
 
 # --------------------------------------------------
-# PLOT MAP
+# CREATE MAP FIGURE
 # --------------------------------------------------
 
 fig = go.Figure()
 
-# Draw movement trails with fading
+# --------------------------------------------------
+# MOVEMENT TRAILS WITH FADING
+# --------------------------------------------------
+
 for player_id, player_df in match_df.groupby("user_id"):
 
     player_df = player_df.sort_values("ts")
@@ -170,7 +213,7 @@ for event_type, event_df in events_df.groupby("event"):
     )
 
 # --------------------------------------------------
-# MINIMAP BACKGROUND
+# ADD MINIMAP BACKGROUND
 # --------------------------------------------------
 
 fig.update_layout(
@@ -182,7 +225,7 @@ fig.update_layout(
         zeroline=False
     ),
     yaxis=dict(
-        range=[1024, 0],   # flipped for image coordinates
+        range=[1024, 0],
         showgrid=False,
         zeroline=False,
         scaleanchor="x"
@@ -205,7 +248,7 @@ fig.update_layout(
 st.plotly_chart(fig, use_container_width=True)
 
 # --------------------------------------------------
-# HEATMAPS
+# HEATMAP ANALYSIS
 # --------------------------------------------------
 
 st.subheader("Heatmap Analysis")
@@ -240,12 +283,15 @@ heatmap = go.Figure(
     )
 )
 
-heatmap.update_yaxes(autorange="reversed")
+heatmap.update_layout(
+    xaxis=dict(range=[0,1024]),
+    yaxis=dict(range=[1024,0])
+)
 
 st.plotly_chart(heatmap, use_container_width=True)
 
 # --------------------------------------------------
-# MATCH STATS
+# MATCH STATISTICS
 # --------------------------------------------------
 
 st.subheader("Match Statistics")
@@ -253,7 +299,7 @@ st.subheader("Match Statistics")
 col1, col2, col3 = st.columns(3)
 
 col1.metric(
-    "Players",
+    "Players Visible",
     match_df["user_id"].nunique()
 )
 
