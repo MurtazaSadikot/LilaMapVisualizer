@@ -17,15 +17,10 @@ st.title("LILA BLACK Player Journey Visualization Tool")
 
 @st.cache_data
 def load_data():
-
     df = load_all_data("data/player_data")
-
     df = convert_coordinates(df)
-
     df["ts"] = pd.to_datetime(df["ts"])
-
     return df
-
 
 df = load_data()
 
@@ -77,16 +72,10 @@ player_mode = st.sidebar.radio(
 )
 
 if player_mode == "Only Humans":
-
-    match_df = match_df[
-        match_df["player_type"] == "human"
-    ]
+    match_df = match_df[match_df["player_type"] == "human"]
 
 elif player_mode == "Only Bots":
-
-    match_df = match_df[
-        match_df["player_type"] == "bot"
-    ]
+    match_df = match_df[match_df["player_type"] == "bot"]
 
 elif player_mode == "Select Specific Players":
 
@@ -133,12 +122,10 @@ if len(match_df) > 1:
     ts_max = match_df["ts"].max()
 
     if ts_max != ts_min:
-
         match_df["time_norm"] = (
             (match_df["ts"] - ts_min) /
             (ts_max - ts_min)
         )
-
     else:
         match_df["time_norm"] = 1
 
@@ -183,14 +170,12 @@ event_colors = {
 }
 
 # --------------------------------------------------
-# CREATE MAP FIGURE
+# MAP VISUALIZATION
 # --------------------------------------------------
+
+st.subheader("Match Map")
 
 fig = go.Figure()
-
-# --------------------------------------------------
-# MOVEMENT TRAILS
-# --------------------------------------------------
 
 for player_id, player_df in match_df.groupby("user_id"):
 
@@ -203,7 +188,6 @@ for player_id, player_df in match_df.groupby("user_id"):
     color = player_colors[player_id]
 
     for i in range(1, len(xs)):
-
         fig.add_trace(
             go.Scatter(
                 x=[xs[i-1], xs[i]],
@@ -229,10 +213,7 @@ for player_id, player_df in match_df.groupby("user_id"):
         )
     )
 
-# --------------------------------------------------
-# EVENT MARKERS
-# --------------------------------------------------
-
+# Event markers
 events_df = match_df[
     match_df["event"].isin(event_colors.keys())
 ]
@@ -252,37 +233,7 @@ for event_type, event_df in events_df.groupby("event"):
         )
     )
 
-# --------------------------------------------------
-# COMBAT INTERACTION LINES
-# --------------------------------------------------
-
-kills = match_df[
-    match_df["event"].isin(["Kill", "BotKill"])
-]
-
-deaths = match_df[
-    match_df["event"].isin(["Killed", "BotKilled"])
-]
-
-pair_count = min(len(kills), len(deaths))
-
-for i in range(pair_count):
-
-    fig.add_trace(
-        go.Scatter(
-            x=[kills.iloc[i]["px"], deaths.iloc[i]["px"]],
-            y=[kills.iloc[i]["py"], deaths.iloc[i]["py"]],
-            mode="lines",
-            line=dict(color="red", width=1, dash="dot"),
-            opacity=0.6,
-            showlegend=False
-        )
-    )
-
-# --------------------------------------------------
-# ADD MAP BACKGROUND
-# --------------------------------------------------
-
+# Map background
 fig.update_layout(
     width=900,
     height=900,
@@ -306,7 +257,7 @@ fig.update_layout(
 st.plotly_chart(fig, use_container_width=True)
 
 # --------------------------------------------------
-# HEATMAP ANALYSIS (NO MAP OVERLAY)
+# HEATMAP (NO MAP IMAGE)
 # --------------------------------------------------
 
 st.subheader("Activity Heatmap")
@@ -317,21 +268,20 @@ heatmap_type = st.selectbox(
     key="heatmap_selector"
 )
 
-# Filter events
 if heatmap_type == "Kill Hotspots":
 
-    heat_df = df[df["event"] == "Kill"]
+    heat_df = match_df[match_df["event"] == "Kill"]
 
 elif heatmap_type == "Death Hotspots":
 
-    heat_df = df[df["event"].isin(
-        ["Killed", "BotKilled", "KilledByStorm"]
+    heat_df = match_df[match_df["event"].isin(
+        ["Killed","BotKilled","KilledByStorm"]
     )]
 
 else:
 
-    heat_df = df[df["event"].isin(
-        ["Position", "BotPosition"]
+    heat_df = match_df[match_df["event"].isin(
+        ["Position","BotPosition"]
     )]
 
 if len(heat_df) == 0:
@@ -349,11 +299,13 @@ else:
         color_continuous_scale="YlOrRd"
     )
 
+    # remove color bar and background images
     heat_fig.update_layout(
-        title="Map Activity Distribution",
-        xaxis_title="Map X Coordinate",
-        yaxis_title="Map Y Coordinate",
-        coloraxis_showscale=False
+        images=[],
+        coloraxis_showscale=False,
+        title="Activity Distribution",
+        xaxis_title="Map X",
+        yaxis_title="Map Y"
     )
 
     heat_fig.update_yaxes(autorange="reversed")
@@ -361,7 +313,7 @@ else:
     st.plotly_chart(heat_fig, use_container_width=True)
 
     st.caption(
-        "Red zones represent areas with the highest player activity."
+        "Red zones represent the highest concentration of player activity."
     )
 
 # --------------------------------------------------
@@ -372,8 +324,17 @@ st.subheader("Match Statistics")
 
 col1, col2, col3 = st.columns(3)
 
-col1.metric("Players Visible", match_df["user_id"].nunique())
+col1.metric(
+    "Players Visible",
+    match_df["user_id"].nunique()
+)
 
-col2.metric("Kills", len(match_df[match_df["event"] == "Kill"]))
+col2.metric(
+    "Kills",
+    len(match_df[match_df["event"] == "Kill"])
+)
 
-col3.metric("Loot Events", len(match_df[match_df["event"] == "Loot"]))
+col3.metric(
+    "Loot Events",
+    len(match_df[match_df["event"] == "Loot"])
+)
