@@ -306,7 +306,7 @@ fig.update_layout(
 st.plotly_chart(fig, use_container_width=True)
 
 # --------------------------------------------------
-# HEATMAP OVERLAY
+# HEATMAP OVERLAY (MAP SHAPED)
 # --------------------------------------------------
 
 st.subheader("Map Activity Overview")
@@ -317,61 +317,69 @@ heatmap_type = st.selectbox(
     key="heatmap_selector"
 )
 
+# Use filtered match data instead of full dataset
 if heatmap_type == "Kill Hotspots":
 
-    heat_df = df[df["event"] == "Kill"]
+    heat_df = match_df[match_df["event"] == "Kill"]
 
 elif heatmap_type == "Death Hotspots":
 
-    heat_df = df[df["event"].isin(
+    heat_df = match_df[match_df["event"].isin(
         ["Killed", "BotKilled", "KilledByStorm"]
     )]
 
 else:
 
-    heat_df = df[df["event"].isin(
+    heat_df = match_df[match_df["event"].isin(
         ["Position", "BotPosition"]
     )]
 
-heat_fig = go.Figure()
+if len(heat_df) == 0:
 
-heat_fig.add_trace(
-    go.Histogram2d(
-        x=heat_df["px"],
-        y=heat_df["py"],
-        nbinsx=60,
-        nbinsy=60,
-        colorscale="YlOrRd",
-        opacity=0.7,
-        showscale=False
-    )
-)
+    st.info("No activity found for this selection.")
 
-heat_fig.update_layout(
-    width=900,
-    height=900,
-    xaxis=dict(range=[0,1024], showgrid=False),
-    yaxis=dict(range=[1024,0], showgrid=False, scaleanchor="x"),
-    images=[
-        dict(
-            source=minimap,
-            xref="x",
-            yref="y",
-            x=0,
-            y=0,
-            sizex=1024,
-            sizey=1024,
-            sizing="stretch",
-            layer="below"
+else:
+
+    heat_fig = go.Figure()
+
+    heat_fig.add_trace(
+        go.Histogram2d(
+            x=heat_df["px"],
+            y=heat_df["py"],
+            nbinsx=80,
+            nbinsy=80,
+            colorscale="YlOrRd",
+            opacity=0.75,
+            showscale=False
         )
-    ]
-)
+    )
 
-st.plotly_chart(heat_fig, use_container_width=True)
+    # Map as background
+    heat_fig.update_layout(
+        width=900,
+        height=900,
+        xaxis=dict(range=[0,1024], showgrid=False),
+        yaxis=dict(range=[1024,0], showgrid=False, scaleanchor="x"),
+        images=[
+            dict(
+                source=minimap,
+                xref="x",
+                yref="y",
+                x=0,
+                y=0,
+                sizex=1024,
+                sizey=1024,
+                sizing="stretch",
+                layer="below"
+            )
+        ]
+    )
 
-st.caption(
-    "Red areas indicate the highest player activity on the map."
-)
+    st.plotly_chart(heat_fig, use_container_width=True)
+
+    st.caption(
+        "Red areas show where the most player activity occurs."
+    )
 
 # --------------------------------------------------
 # MATCH STATS
