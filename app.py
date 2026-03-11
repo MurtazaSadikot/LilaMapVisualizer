@@ -1,7 +1,10 @@
 import streamlit as st
 import pandas as pd
+import plotly.graph_objects as go
 import plotly.express as px
 from PIL import Image
+import numpy as np
+from sklearn.cluster import KMeans
 
 from data_loader import load_all_data
 from coordinate_mapper import convert_coordinates
@@ -10,112 +13,358 @@ st.set_page_config(layout="wide")
 
 st.title("LILA BLACK Player Journey Visualization Tool")
 
+# --------------------------------------------------
+# LOAD DATA
+# --------------------------------------------------
+
 @st.cache_data
 def load_data():
+
     df = load_all_data("data/player_data")
+
     df = convert_coordinates(df)
+
+    df["ts"] = pd.to_datetime(df["ts"])
+
     return df
+
 
 df = load_data()
 
-# Sidebar Filters
+# --------------------------------------------------
+# SIDEBAR FILTERS
+# --------------------------------------------------
+
 st.sidebar.header("Filters")
 
 map_choice = st.sidebar.selectbox(
-    "Select Map",
-    df["map_id"].unique()
+    "Map",
+    sorted(df["map_id"].unique()),
+    key="map_filter"
 )
 
-filtered_map = df[df["map_id"] == map_choice]
+map_df = df[df["map_id"] == map_choice]
+
+date_choice = st.sidebar.selectbox(
+    "Date",
+    sorted(map_df["date"].unique()),
+    key="date_filter"
+)
+
+date_df = map_df[map_df["date"] == date_choice]
 
 match_choice = st.sidebar.selectbox(
-    "Select Match",
-    filtered_map["match_id"].unique()
+    "Match",
+    sorted(date_df["match_id"].unique()),
+    key="match_filter"
 )
 
-filtered = filtered_map[filtered_map["match_id"] == match_choice]
+match_df = date_df[date_df["match_id"] == match_choice]
 
-# Load minimap
-minimap_path = f"minimaps/{map_choice}_Minimap.png"
+# --------------------------------------------------
+# PLAYER FILTER
+# --------------------------------------------------
+
+st.sidebar.subheader("Player Filter")
+
+player_mode = st.sidebar.radio(
+    "Show Players",
+    [
+        "All Players",
+        "Only Humans",
+        "Only Bots",
+        "Select Specific Players"
+    ],
+    key="player_filter"
+)
+
+if player_mode == "Only Humans":
+    match_df = match_df[match_df["player_type"] == "human"]
+
+elif player_mode == "Only Bots":
+    match_df = match_df[match_df["player_type"] == "bot"]
+
+elif player_mode == "Select Specific Players":
+
+    players = st.sidebar.multiselect(
+        "Select Players",
+        sorted(match_df["user_id"].unique()),
+        key="player_select"
+    )
+
+    if players:
+        match_df = match_df[
+            match_df["user_id"].isin(players)
+        ]
+
+# --------------------------------------------------
+# TIMELINE
+# --------------------------------------------------
+
+match_df = match_df.sort_values("ts")
+
+event_count = len(match_df)
+
+if event_count == 0:
+    st.warning("No events available for the selected filters.")
+    st.stop()
+
+timeline_index = st.slider(
+    "Match Timeline",
+    min_value=1,
+    max_value=event_count,
+    value=min(1000, event_count),
+    key="timeline_slider"
+)
+
+match_df = match_df.iloc[:timeline_index]
+
+# --------------------------------------------------
+# NORMALIZE TIME
+# --------------------------------------------------
+
+if len(match_df) > 1:
+
+    ts_min = match_df["ts"].min()
+    ts_max = match_df["ts"].max()
+
+    if ts_max != ts_min:
+        match_df["time_norm"] = (
+            (match_df["ts"] - ts_min) /
+            (ts_max - ts_min)
+        )
+    else:
+        match_df["time_norm"] = 1
+
+else:
+    match_df["time_norm"] = 1
+
+# --------------------------------------------------
+# LOAD MINIMAP
+# --------------------------------------------------
+
+map_path = f"minimaps/{map_choice}_Minimap.png"
 
 if map_choice == "Lockdown":
-    minimap_path = "minimaps/Lockdown_Minimap.jpg"
+    map_path = "minimaps/Lockdown_Minimap.jpg"
 
-img = Image.open(minimap_path)
+minimap = Image.open(map_path)
 
-st.image(img, width=600)
+# --------------------------------------------------
+# PLAYER COLORS
+# --------------------------------------------------
 
-# Event Filters
-st.sidebar.subheader("Events")
+players = sorted(match_df["user_id"].unique())
 
-show_kills = st.sidebar.checkbox("Kills", True)
-show_loot = st.sidebar.checkbox("Loot", True)
-show_paths = st.sidebar.checkbox("Movement", True)
+palette = px.colors.qualitative.Alphabet
 
-event_filter = []
+player_colors = {
+    player: palette[i % len(palette)]
+    for i, player in enumerate(players)
+}
 
-if show_kills:
-    event_filter.append("Kill")
+# --------------------------------------------------
+# EVENT COLORS
+# --------------------------------------------------
 
-if show_loot:
-    event_filter.append("Loot")
+event_colors = {
+    "Kill": "red",
+    "Killed": "black",
+    "BotKill": "orange",
+    "BotKilled": "brown",
+    "Loot": "yellow",
+    "KilledByStorm": "purple"
+}
 
-if show_paths:
-    event_filter.append("Position")
+# --------------------------------------------------
+# MAP VISUALIZATION
+# --------------------------------------------------
 
-filtered = filtered[
-    filtered["event"].isin(event_filter)
+st.subheader("Match Map")
+
+fig = go.Figure()
+
+for player_id, player_df in match_df.groupby("user_id"):
+
+    player_df = player_df.sort_values("ts")
+
+    xs = player_df["px"].values
+    ys = player_df["py"].values
+    times = player_df["time_norm"].values
+
+    color = player_colors[player_id]
+
+    for i in range(1, len(xs)):
+
+        fig.add_trace(
+            go.Scatter(
+                x=[xs[i-1], xs[i]],
+                y=[ys[i-1], ys[i]],
+                mode="lines",
+                line=dict(color=color, width=3),
+                opacity=float(times[i]),
+                showlegend=False
+            )
+        )
+
+    fig.add_trace(
+        go.Scatter(
+            x=[xs[-1]],
+            y=[ys[-1]],
+            mode="markers",
+            marker=dict(
+                size=10,
+                color=color,
+                line=dict(width=2, color="black")
+            ),
+            name=str(player_id)
+        )
+    )
+
+# Event markers
+events_df = match_df[
+    match_df["event"].isin(event_colors.keys())
 ]
 
-# Timeline
-filtered = filtered.sort_values("ts")
+for event_type, event_df in events_df.groupby("event"):
 
-time_index = st.slider(
-    "Timeline",
-    0,
-    len(filtered),
-    min(500, len(filtered))
+    fig.add_trace(
+        go.Scatter(
+            x=event_df["px"],
+            y=event_df["py"],
+            mode="markers",
+            marker=dict(
+                size=8,
+                color=event_colors[event_type]
+            ),
+            name=event_type
+        )
+    )
+
+fig.update_layout(
+    width=900,
+    height=900,
+    xaxis=dict(range=[0,1024], showgrid=False),
+    yaxis=dict(range=[1024,0], showgrid=False, scaleanchor="x"),
+    images=[
+        dict(
+            source=minimap,
+            xref="x",
+            yref="y",
+            x=0,
+            y=0,
+            sizex=1024,
+            sizey=1024,
+            sizing="stretch",
+            layer="below"
+        )
+    ]
 )
-
-filtered = filtered.iloc[:time_index]
-
-# Plot
-fig = px.scatter(
-    filtered,
-    x="px",
-    y="py",
-    color="player_type",
-    hover_data=["event"],
-    title="Player Events"
-)
-
-fig.update_yaxes(autorange="reversed")
 
 st.plotly_chart(fig, use_container_width=True)
 
-# Heatmap
-st.subheader("Kill Heatmap")
+# --------------------------------------------------
+# HOTSPOT CLUSTER VISUALIZATION
+# --------------------------------------------------
 
-kills = df[df["event"] == "Kill"]
+st.subheader("Activity Hotspots")
 
-if len(kills) > 0:
-    heatmap = px.density_heatmap(
-        kills,
-        x="px",
-        y="py",
-        nbinsx=50,
-        nbinsy=50
+heatmap_type = st.selectbox(
+    "Activity Type",
+    ["Player Traffic", "Kill Hotspots", "Death Hotspots"],
+    key="heatmap_selector"
+)
+
+if heatmap_type == "Kill Hotspots":
+
+    heat_df = date_df[date_df["event"] == "Kill"]
+
+elif heatmap_type == "Death Hotspots":
+
+    heat_df = date_df[
+        date_df["event"].isin(
+            ["Killed","BotKilled","KilledByStorm"]
+        )
+    ]
+
+else:
+
+    heat_df = date_df[
+        date_df["event"].isin(
+            ["Position","BotPosition"]
+        )
+    ]
+
+if len(heat_df) < 10:
+
+    st.info("Not enough data to detect hotspots.")
+
+else:
+
+    coords = heat_df[["px","py"]].values
+
+    kmeans = KMeans(
+        n_clusters=5,
+        random_state=0
+    ).fit(coords)
+
+    centers = kmeans.cluster_centers_
+
+    labels = kmeans.labels_
+
+    counts = np.bincount(labels)
+
+    hotspot_fig = go.Figure()
+
+    for i, center in enumerate(centers):
+
+        hotspot_fig.add_trace(
+            go.Scatter(
+                x=[center[0]],
+                y=[center[1]],
+                mode="markers",
+                marker=dict(
+                    size=counts[i] * 2,
+                    color="red",
+                    opacity=0.6
+                ),
+                name=f"Zone {i+1}"
+            )
+        )
+
+    hotspot_fig.update_layout(
+        title="Activity Hotspots",
+        xaxis_title="Map X",
+        yaxis_title="Map Y"
     )
 
-    heatmap.update_yaxes(autorange="reversed")
+    hotspot_fig.update_yaxes(autorange="reversed")
 
-    st.plotly_chart(heatmap, use_container_width=True)
+    st.plotly_chart(hotspot_fig, use_container_width=True)
 
-# Stats
+    st.caption(
+        "Circle size indicates activity intensity."
+    )
+
+# --------------------------------------------------
+# MATCH STATS
+# --------------------------------------------------
+
 st.subheader("Match Statistics")
 
 col1, col2, col3 = st.columns(3)
 
-col1.metric("Players", filtered["user_id"].nunique())
-col2.metric("Kills", len(filtered[filtered["event"] == "Kill"]))
-col3.metric("Loot Events", len(filtered[filtered["event"] == "Loot"]))
+col1.metric(
+    "Players Visible",
+    match_df["user_id"].nunique()
+)
+
+col2.metric(
+    "Kills",
+    len(match_df[match_df["event"] == "Kill"])
+)
+
+col3.metric(
+    "Loot Events",
+    len(match_df[match_df["event"] == "Loot"])
+)

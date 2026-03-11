@@ -2,7 +2,8 @@ import pandas as pd
 import pyarrow.parquet as pq
 import os
 
-def load_day(folder):
+
+def load_day(folder, day_name):
 
     frames = []
 
@@ -14,9 +15,12 @@ def load_day(folder):
             table = pq.read_table(path)
             df = table.to_pandas()
 
+            # decode event column
             df["event"] = df["event"].apply(
                 lambda x: x.decode("utf-8") if isinstance(x, bytes) else x
             )
+
+            df["date"] = day_name
 
             frames.append(df)
 
@@ -36,10 +40,11 @@ def load_all_data(root_folder):
 
         if os.path.isdir(folder):
 
-            frames.append(load_day(folder))
+            frames.append(load_day(folder, day))
 
     df = pd.concat(frames, ignore_index=True)
 
+    # detect bots vs humans
     df["player_type"] = df["user_id"].apply(
         lambda x: "bot" if str(x).isdigit() else "human"
     )
