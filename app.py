@@ -306,7 +306,7 @@ fig.update_layout(
 st.plotly_chart(fig, use_container_width=True)
 
 # --------------------------------------------------
-# HEATMAP OVERLAY (MAP SHAPED)
+# SMOOTH HEATMAP OVERLAY
 # --------------------------------------------------
 
 st.subheader("Map Activity Overview")
@@ -317,7 +317,7 @@ heatmap_type = st.selectbox(
     key="heatmap_selector"
 )
 
-# Use filtered match data instead of full dataset
+# Use match filtered data
 if heatmap_type == "Kill Hotspots":
 
     heat_df = match_df[match_df["event"] == "Kill"]
@@ -342,19 +342,21 @@ else:
 
     heat_fig = go.Figure()
 
+    # Smooth density heatmap
     heat_fig.add_trace(
-        go.Histogram2d(
+        go.Histogram2dContour(
             x=heat_df["px"],
             y=heat_df["py"],
-            nbinsx=80,
-            nbinsy=80,
             colorscale="YlOrRd",
+            contours=dict(
+                coloring="heatmap"
+            ),
             opacity=0.75,
             showscale=False
         )
     )
 
-    # Map as background
+    # Map background
     heat_fig.update_layout(
         width=900,
         height=900,
@@ -378,7 +380,7 @@ else:
     st.plotly_chart(heat_fig, use_container_width=True)
 
     st.caption(
-        "Red areas show where the most player activity occurs."
+        "Red zones indicate the highest concentration of activity."
     )
 
 # --------------------------------------------------
