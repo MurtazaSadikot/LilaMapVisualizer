@@ -306,63 +306,63 @@ fig.update_layout(
 st.plotly_chart(fig, use_container_width=True)
 
 # --------------------------------------------------
-# HEATMAP PANEL
+# HEATMAP ANALYSIS (NO MAP OVERLAY)
 # --------------------------------------------------
 
 st.subheader("Activity Heatmap")
 
-col1, col2 = st.columns([2,1])
+heatmap_type = st.selectbox(
+    "Heatmap Type",
+    ["Player Traffic", "Kill Hotspots", "Death Hotspots"],
+    key="heatmap_selector"
+)
 
-with col2:
+# Filter events
+if heatmap_type == "Kill Hotspots":
 
-    heatmap_type = st.selectbox(
-        "Heatmap Type",
-        ["Player Traffic", "Kill Hotspots", "Death Hotspots"],
-        key="heatmap_selector"
+    heat_df = df[df["event"] == "Kill"]
+
+elif heatmap_type == "Death Hotspots":
+
+    heat_df = df[df["event"].isin(
+        ["Killed", "BotKilled", "KilledByStorm"]
+    )]
+
+else:
+
+    heat_df = df[df["event"].isin(
+        ["Position", "BotPosition"]
+    )]
+
+if len(heat_df) == 0:
+
+    st.info("No activity available for this filter.")
+
+else:
+
+    heat_fig = px.density_heatmap(
+        heat_df,
+        x="px",
+        y="py",
+        nbinsx=70,
+        nbinsy=70,
+        color_continuous_scale="YlOrRd"
     )
 
-    if heatmap_type == "Kill Hotspots":
+    heat_fig.update_layout(
+        title="Map Activity Distribution",
+        xaxis_title="Map X Coordinate",
+        yaxis_title="Map Y Coordinate",
+        coloraxis_showscale=False
+    )
 
-        heat_df = df[df["event"] == "Kill"]
+    heat_fig.update_yaxes(autorange="reversed")
 
-    elif heatmap_type == "Death Hotspots":
+    st.plotly_chart(heat_fig, use_container_width=True)
 
-        heat_df = df[df["event"].isin(
-            ["Killed","BotKilled","KilledByStorm"]
-        )]
-
-    else:
-
-        heat_df = df[df["event"].isin(
-            ["Position","BotPosition"]
-        )]
-
-    if len(heat_df) == 0:
-
-        st.info("No data available for this selection.")
-
-    else:
-
-        heat_fig = px.density_heatmap(
-            heat_df,
-            x="px",
-            y="py",
-            nbinsx=60,
-            nbinsy=60,
-            color_continuous_scale="YlOrRd"
-        )
-
-        heat_fig.update_layout(
-            title="Activity Distribution",
-            xaxis_title="Map X",
-            yaxis_title="Map Y"
-        )
-
-        st.plotly_chart(heat_fig, use_container_width=True)
-
-        st.caption(
-            "Red areas show where player activity is most concentrated."
-        )
+    st.caption(
+        "Red zones represent areas with the highest player activity."
+    )
 
 # --------------------------------------------------
 # MATCH STATS
