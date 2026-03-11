@@ -174,24 +174,33 @@ for event_type, event_df in events_df.groupby("event"):
 # --------------------------------------------------
 
 fig.update_layout(
+    width=900,
+    height=900,
+    xaxis=dict(
+        range=[0, 1024],
+        showgrid=False,
+        zeroline=False
+    ),
+    yaxis=dict(
+        range=[1024, 0],   # flipped for image coordinates
+        showgrid=False,
+        zeroline=False,
+        scaleanchor="x"
+    ),
     images=[
         dict(
             source=minimap,
             xref="x",
             yref="y",
             x=0,
-            y=1024,
+            y=0,
             sizex=1024,
             sizey=1024,
             sizing="stretch",
             layer="below"
         )
-    ],
-    width=900,
-    height=900
+    ]
 )
-
-fig.update_yaxes(autorange="reversed")
 
 st.plotly_chart(fig, use_container_width=True)
 
