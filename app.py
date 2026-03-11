@@ -4,14 +4,13 @@ import plotly.graph_objects as go
 import plotly.express as px
 from PIL import Image
 import numpy as np
-from sklearn.cluster import KMeans
 
 from data_loader import load_all_data
 from coordinate_mapper import convert_coordinates
 
 st.set_page_config(layout="wide")
 
-st.title("LILA BLACK Player Journey Visualization Tool")
+st.title("LILA Black Player Journey Visualization")
 
 # --------------------------------------------------
 # LOAD DATA
@@ -79,9 +78,11 @@ player_mode = st.sidebar.radio(
 )
 
 if player_mode == "Only Humans":
+
     match_df = match_df[match_df["player_type"] == "human"]
 
 elif player_mode == "Only Bots":
+
     match_df = match_df[match_df["player_type"] == "bot"]
 
 elif player_mode == "Select Specific Players":
@@ -222,6 +223,7 @@ for player_id, player_df in match_df.groupby("user_id"):
     )
 
 # Event markers
+
 events_df = match_df[
     match_df["event"].isin(event_colors.keys())
 ]
@@ -240,6 +242,8 @@ for event_type, event_df in events_df.groupby("event"):
             name=event_type
         )
     )
+
+# Map background
 
 fig.update_layout(
     width=900,
@@ -264,10 +268,12 @@ fig.update_layout(
 st.plotly_chart(fig, use_container_width=True)
 
 # --------------------------------------------------
-# HOTSPOT CLUSTER VISUALIZATION
+# HEATMAP OVERLAY
 # --------------------------------------------------
 
-st.subheader("Activity Hotspots")
+st.subheader("Map Activity Heatmap")
+
+show_heatmap = st.checkbox("Show Heatmap Overlay", True)
 
 heatmap_type = st.selectbox(
     "Activity Type",
@@ -290,64 +296,58 @@ elif heatmap_type == "Death Hotspots":
 else:
 
     heat_df = date_df[
-        date_df["event"].isin(
-            ["Position","BotPosition"]
+        date_df["event"].isin(["Position","BotPosition"])
+    ].sample(frac=0.1, random_state=1)
+
+
+if show_heatmap and len(heat_df) > 10:
+
+    heat_fig = go.Figure()
+
+    heat_fig.add_trace(
+        go.Histogram2d(
+            x=heat_df["px"],
+            y=heat_df["py"],
+            nbinsx=40,
+            nbinsy=40,
+            colorscale="YlOrRd",
+            opacity=0.6,
+            showscale=False
         )
-    ]
+    )
 
-if len(heat_df) < 10:
+    heat_fig.update_layout(
+        width=900,
+        height=900,
+        xaxis=dict(range=[0,1024], showgrid=False),
+        yaxis=dict(range=[1024,0], showgrid=False, scaleanchor="x"),
+        images=[
+            dict(
+                source=minimap,
+                xref="x",
+                yref="y",
+                x=0,
+                y=0,
+                sizex=1024,
+                sizey=1024,
+                sizing="stretch",
+                layer="below"
+            )
+        ]
+    )
 
-    st.info("Not enough data to detect hotspots.")
+    st.plotly_chart(heat_fig, use_container_width=True)
+
+    st.caption(
+        "Red zones indicate the highest player activity density."
+    )
 
 else:
 
-    coords = heat_df[["px","py"]].values
-
-    kmeans = KMeans(
-        n_clusters=5,
-        random_state=0
-    ).fit(coords)
-
-    centers = kmeans.cluster_centers_
-
-    labels = kmeans.labels_
-
-    counts = np.bincount(labels)
-
-    hotspot_fig = go.Figure()
-
-    for i, center in enumerate(centers):
-
-        hotspot_fig.add_trace(
-            go.Scatter(
-                x=[center[0]],
-                y=[center[1]],
-                mode="markers",
-                marker=dict(
-                    size=counts[i] * 2,
-                    color="red",
-                    opacity=0.6
-                ),
-                name=f"Zone {i+1}"
-            )
-        )
-
-    hotspot_fig.update_layout(
-        title="Activity Hotspots",
-        xaxis_title="Map X",
-        yaxis_title="Map Y"
-    )
-
-    hotspot_fig.update_yaxes(autorange="reversed")
-
-    st.plotly_chart(hotspot_fig, use_container_width=True)
-
-    st.caption(
-        "Circle size indicates activity intensity."
-    )
+    st.info("Not enough data for heatmap.")
 
 # --------------------------------------------------
-# MATCH STATS
+# MATCH STATISTICS
 # --------------------------------------------------
 
 st.subheader("Match Statistics")

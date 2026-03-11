@@ -1,6 +1,6 @@
 streamlit
 pandas
-pyarrow
 plotly
-pillow
+Pillow
 scikit-learn
+pyarrow
