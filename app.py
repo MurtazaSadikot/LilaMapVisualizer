@@ -31,6 +31,21 @@ def load_data():
 df = load_data()
 
 # --------------------------------------------------
+# HUMAN PLAYER COUNT PER MATCH
+# --------------------------------------------------
+
+human_counts = (
+    df[df["player_type"] == "human"]
+    .groupby("match_id")["user_id"]
+    .nunique()
+    .reset_index(name="human_players")
+)
+
+df = df.merge(human_counts, on="match_id", how="left")
+
+df["human_players"] = df["human_players"].fillna(0)
+
+# --------------------------------------------------
 # SIDEBAR FILTERS
 # --------------------------------------------------
 
@@ -59,6 +74,32 @@ match_choice = st.sidebar.selectbox(
 )
 
 match_df = date_df[date_df["match_id"] == match_choice]
+
+# --------------------------------------------------
+# MATCH QUALITY FILTER
+# --------------------------------------------------
+
+st.sidebar.subheader("Match Quality")
+
+human_filter = st.sidebar.selectbox(
+    "Minimum Human Players",
+    [
+        "Any",
+        "2+ humans",
+        "3+ humans",
+        "5+ humans"
+    ],
+    key="human_match_filter"
+)
+
+if human_filter == "2+ humans":
+    df = df[df["human_players"] >= 2]
+
+elif human_filter == "3+ humans":
+    df = df[df["human_players"] >= 3]
+
+elif human_filter == "5+ humans":
+    df = df[df["human_players"] >= 5]
 
 # --------------------------------------------------
 # PLAYER FILTER
