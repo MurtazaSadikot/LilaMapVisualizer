@@ -31,7 +31,7 @@ def load_data():
 df = load_data()
 
 # --------------------------------------------------
-# HUMAN PLAYER COUNT PER MATCH
+# COMPUTE HUMAN COUNT PER MATCH
 # --------------------------------------------------
 
 human_counts = (
@@ -46,40 +46,10 @@ df = df.merge(human_counts, on="match_id", how="left")
 df["human_players"] = df["human_players"].fillna(0)
 
 # --------------------------------------------------
-# SIDEBAR FILTERS
+# MATCH QUALITY FILTER (FIRST FILTER)
 # --------------------------------------------------
 
-st.sidebar.header("Filters")
-
-map_choice = st.sidebar.selectbox(
-    "Map",
-    sorted(df["map_id"].unique()),
-    key="map_filter"
-)
-
-map_df = df[df["map_id"] == map_choice]
-
-date_choice = st.sidebar.selectbox(
-    "Date",
-    sorted(map_df["date"].unique()),
-    key="date_filter"
-)
-
-date_df = map_df[map_df["date"] == date_choice]
-
-match_choice = st.sidebar.selectbox(
-    "Match",
-    sorted(date_df["match_id"].unique()),
-    key="match_filter"
-)
-
-match_df = date_df[date_df["match_id"] == match_choice]
-
-# --------------------------------------------------
-# MATCH QUALITY FILTER
-# --------------------------------------------------
-
-st.sidebar.subheader("Match Quality")
+st.sidebar.header("Match Filters")
 
 human_filter = st.sidebar.selectbox(
     "Minimum Human Players",
@@ -92,14 +62,64 @@ human_filter = st.sidebar.selectbox(
     key="human_match_filter"
 )
 
+filtered_df = df.copy()
+
 if human_filter == "2+ humans":
-    df = df[df["human_players"] >= 2]
+    filtered_df = filtered_df[filtered_df["human_players"] >= 2]
 
 elif human_filter == "3+ humans":
-    df = df[df["human_players"] >= 3]
+    filtered_df = filtered_df[filtered_df["human_players"] >= 3]
 
 elif human_filter == "5+ humans":
-    df = df[df["human_players"] >= 5]
+    filtered_df = filtered_df[filtered_df["human_players"] >= 5]
+
+# --------------------------------------------------
+# MAP FILTER
+# --------------------------------------------------
+
+map_choice = st.sidebar.selectbox(
+    "Map",
+    sorted(filtered_df["map_id"].unique()),
+    key="map_filter"
+)
+
+map_df = filtered_df[filtered_df["map_id"] == map_choice]
+
+# --------------------------------------------------
+# DATE FILTER
+# --------------------------------------------------
+
+date_choice = st.sidebar.selectbox(
+    "Date",
+    sorted(map_df["date"].unique()),
+    key="date_filter"
+)
+
+date_df = map_df[map_df["date"] == date_choice]
+
+# --------------------------------------------------
+# MATCH FILTER
+# --------------------------------------------------
+
+match_list = (
+    date_df.groupby("match_id")["human_players"]
+    .max()
+    .sort_values(ascending=False)
+)
+
+match_labels = {
+    m: f"{m} ({int(c)} humans)"
+    for m, c in match_list.items()
+}
+
+match_choice = st.sidebar.selectbox(
+    "Match",
+    list(match_labels.keys()),
+    format_func=lambda x: match_labels[x],
+    key="match_filter"
+)
+
+match_df = date_df[date_df["match_id"] == match_choice]
 
 # --------------------------------------------------
 # PLAYER FILTER
@@ -148,7 +168,7 @@ match_df = match_df.sort_values("ts")
 event_count = len(match_df)
 
 if event_count == 0:
-    st.warning("No events available for the selected filters.")
+    st.warning("No events available for selected filters.")
     st.stop()
 
 timeline_index = st.slider(
@@ -162,7 +182,7 @@ timeline_index = st.slider(
 match_df = match_df.iloc[:timeline_index]
 
 # --------------------------------------------------
-# NORMALIZE TIME
+# TIME NORMALIZATION
 # --------------------------------------------------
 
 if len(match_df) > 1:
@@ -171,14 +191,18 @@ if len(match_df) > 1:
     ts_max = match_df["ts"].max()
 
     if ts_max != ts_min:
+
         match_df["time_norm"] = (
             (match_df["ts"] - ts_min) /
             (ts_max - ts_min)
         )
+
     else:
+
         match_df["time_norm"] = 1
 
 else:
+
     match_df["time_norm"] = 1
 
 # --------------------------------------------------
@@ -284,8 +308,6 @@ for event_type, event_df in events_df.groupby("event"):
         )
     )
 
-# Map background
-
 fig.update_layout(
     width=900,
     height=900,
@@ -309,12 +331,10 @@ fig.update_layout(
 st.plotly_chart(fig, use_container_width=True)
 
 # --------------------------------------------------
-# HEATMAP OVERLAY
+# HEATMAP
 # --------------------------------------------------
 
 st.subheader("Map Activity Heatmap")
-
-show_heatmap = st.checkbox("Show Heatmap Overlay", True)
 
 heatmap_type = st.selectbox(
     "Activity Type",
@@ -340,8 +360,7 @@ else:
         date_df["event"].isin(["Position","BotPosition"])
     ].sample(frac=0.1, random_state=1)
 
-
-if show_heatmap and len(heat_df) > 10:
+if len(heat_df) > 10:
 
     heat_fig = go.Figure()
 
@@ -379,33 +398,16 @@ if show_heatmap and len(heat_df) > 10:
 
     st.plotly_chart(heat_fig, use_container_width=True)
 
-    st.caption(
-        "Red zones indicate the highest player activity density."
-    )
-
-else:
-
-    st.info("Not enough data for heatmap.")
-
 # --------------------------------------------------
-# MATCH STATISTICS
+# MATCH STATS
 # --------------------------------------------------
 
 st.subheader("Match Statistics")
 
 col1, col2, col3 = st.columns(3)
 
-col1.metric(
-    "Players Visible",
-    match_df["user_id"].nunique()
-)
+col1.metric("Players Visible", match_df["user_id"].nunique())
 
-col2.metric(
-    "Kills",
-    len(match_df[match_df["event"] == "Kill"])
-)
+col2.metric("Kills", len(match_df[match_df["event"] == "Kill"]))
 
-col3.metric(
-    "Loot Events",
-    len(match_df[match_df["event"] == "Loot"])
-)
+col3.metric("Loot Events", len(match_df[match_df["event"] == "Loot"]))
